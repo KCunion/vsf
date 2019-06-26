@@ -85,6 +85,7 @@ static bool __vsf_systimer_set_target(vsf_systimer_cnt_t tick_cnt)
 
 WEAK void vsf_systimer_set_idle(void)
 {   
+//    vsf_trace(VSF_TRACE_DEBUG, "systimer_idle\r\n");
     __SAFE_ATOM_CODE(
         __vsf_systimer_update();
         __vsf_systimer_set_target(__vsf_cm.systimer.max_tick_per_round);
@@ -152,7 +153,6 @@ WEAK vsf_systimer_cnt_t vsf_systimer_get(void)
         if (auto_update) {
             __vsf_cm.systimer.tick = ticks;
         }
-        
     }
     return ticks;
 }
@@ -167,6 +167,8 @@ WEAK bool vsf_systimer_set(vsf_systimer_cnt_t due)
         vsf_systimer_cnt_t current = __vsf_systimer_update();
         //vsf_systick_disable();
         vsf_systimer_cnt_t tick_cnt;
+//        vsf_trace(VSF_TRACE_DEBUG, "systimer_set: %lld %lld %c\r\n",
+//                    current, due, due > current ? '*' : ' ');
         /*
         if (due < current) {
             tick_cnt = 0xFFFFFFFF - current + due + 1;
@@ -207,7 +209,7 @@ WEAK vsf_systimer_cnt_t vsf_systimer_ms_to_tick(uint_fast32_t time_ms)
 
 WEAK uint_fast32_t vsf_systimer_tick_to_us(vsf_systimer_cnt_t tick)
 {
-    return tick / __vsf_cm.systimer.unit;
+    return tick * 1000000ul / __vsf_cm.systimer.tick_freq;
 }
 
 WEAK uint_fast32_t vsf_systimer_tick_to_ms(vsf_systimer_cnt_t tick)
@@ -227,13 +229,6 @@ WEAK void vsf_drv_swi_trigger(uint_fast8_t idx) {}
 vsf_err_t vsf_swi_init(uint_fast8_t idx, uint_fast8_t priority,
         vsf_swi_hanler_t *handler, void *pparam)
 {
-
-    volatile uint32_t *shpr = (volatile uint32_t *)
-                                                #if __CORTEX_M == 7
-                                                    SCB->SHPR;
-                                                #else
-                                                    SCB->SHP;
-                                                #endif
     if (0 == idx) {
         __vsf_cm.pendsv.handler = handler;
         __vsf_cm.pendsv.pparam = pparam;
@@ -241,10 +236,7 @@ vsf_err_t vsf_swi_init(uint_fast8_t idx, uint_fast8_t priority,
         __vsf_cm.pendsv.enabled = true;
         __vsf_cm.pendsv.sw_pending_bit = 0;
 #endif
-        //shpr[10] = priority;
-        uint32_t temp = shpr[3];
-        ((uint8_t *)&temp)[2] = priority; 
-        shpr[3] = temp;
+        NVIC_SetPriority(PendSV_IRQn, priority);
         return VSF_ERR_NONE;
     } else {
         return vsf_drv_swi_init(idx - 1, priority, handler, pparam);

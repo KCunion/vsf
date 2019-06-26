@@ -55,7 +55,7 @@ struct usrapp_t {
     vsf_usbh_class_t usbh_libusb;
     vsf_usbh_class_t usbh_ecm;
     uint8_t dev_count;
-    uint8_t heap[0x4000];
+    //uint8_t heap[0x4000];
 
     struct {
         bool inited;
@@ -101,7 +101,7 @@ struct usrapp_t {
 };
 typedef struct usrapp_t usrapp_t;
 
-#if VSF_USE_KERNEL_THREAD_MODE == ENABLED
+#if VSF_KERNEL_CFG_SUPPORT_THREAD == ENABLED
 declare_vsf_thread(user_task_t)
 
 def_vsf_thread(user_task_t, 1024,
@@ -592,14 +592,14 @@ void vsf_pnp_on_netdrv_del(vsf_netdrv_t *netdrv)
 #endif
 
 #if VSF_USE_USB_DEVICE == ENABLED
-void usrapp_usbd_connect(void *param)
+void usrapp_usbd_connect(vsf_callback_timer_t *timer)
 {
-    vsf_usbd_connect((vsf_usbd_dev_t *)param);
+    vsf_usbd_connect(&usrapp.usbd.dev);
 }
 #endif
 
 static uint_fast32_t count = 0;
-#if VSF_USE_KERNEL_THREAD_MODE == ENABLED
+#if VSF_KERNEL_CFG_SUPPORT_THREAD == ENABLED
 implement_vsf_thread(user_task_t) 
 {
     while (1) {
@@ -627,8 +627,8 @@ static void usrapp_heartbeat_evthandler(vsf_eda_t *eda, vsf_evt_t evt)
 int main(void)
 {
 #if VSF_USE_USB_HOST == ENABLED
-    vsf_heap_init();
-    vsf_heap_add(usrapp.heap, sizeof(usrapp.heap));
+    //vsf_heap_init();
+    //vsf_heap_add(usrapp.heap, sizeof(usrapp.heap));
 
     app_led_init();
 
@@ -697,17 +697,26 @@ int main(void)
     vsf_usbd_init(&usrapp.usbd.dev);
     vsf_usbd_disconnect(&usrapp.usbd.dev);
 
-    usrapp.usbd.timer.param = &usrapp.usbd.dev;
     usrapp.usbd.timer.on_timer = usrapp_usbd_connect;
     vsf_callback_timer_add_ms(&usrapp.usbd.timer, 200);
 #endif
 
 #if VSF_USE_TRACE == ENABLED
+#   if 0
+#       if      VSF_USE_SERVICE_VSFSTREAM == ENABLED
+    vsf_trace_init(&usrapp.usbd.cdc.stream[0].tx);
+#       elif    VSF_USE_SERVICE_STREAM == ENABLED
+    vsf_trace_init(&(usrapp.usbd.cdc.stream[0].tx.TX));
+#       else
     vsf_trace_init(NULL);
+#       endif
+#   else
+    vsf_trace_init(NULL);
+#   endif
 #endif
     
 
-#if VSF_USE_KERNEL_THREAD_MODE == ENABLED
+#if VSF_KERNEL_CFG_SUPPORT_THREAD == ENABLED
     do {
         static NO_INIT user_task_t __user_task;
         init_vsf_thread(user_task_t, &__user_task, vsf_priority_0);

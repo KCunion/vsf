@@ -45,7 +45,7 @@ typedef uint_fast8_t vsf_sched_lock_status_t;
 #   define vsf_sched_safe_exit()        vsf_sched_unlock(lock_status)
 #else
 #   define vsf_sched_lock()             0
-#   define vsf_sched_unlock(level)      UNUSED_PARAM(level)
+#   define vsf_sched_unlock(level)      
 #   define vsf_sched_safe(...)          __VA_ARGS__
 #   define __vsf_sched_safe(...)        __VA_ARGS__
 #   define vsf_interrupt_safe(...)      __VA_ARGS__
@@ -80,11 +80,11 @@ struct vsf_kernel_resource_t {
     }evt_queue;
 #   endif
 #endif
-#if VSF_USE_KERNEL_TASK_MODE == ENABLED
+#if VSF_KERNEL_CFG_EDA_FRAME_POOL == ENABLED
     struct {
-        vsf_pool_block(vsf_task_stack_frame_pool) *frame_buf_ptr;
-        uint16_t                                  frame_cnt;
-    }task_stack;
+        vsf_pool_block(vsf_eda_frame_pool)  *frame_buf_ptr;
+        uint16_t                            frame_cnt;
+    }frame_stack;
 #endif
 }ALIGN(4);
 

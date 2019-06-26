@@ -19,7 +19,7 @@
 #define __USE_ARM_COMPILER_H__
 
 /*============================ INCLUDES ======================================*/
-#include "vsf_app_cfg.h"
+#include "vsf_usr_cfg.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
@@ -180,7 +180,7 @@
 #   define NO_INIT              __no_init
 #   define ROOT                 __root
 #   define INLINE               inline
-#   define NO_INLINE            noinline
+#   define NO_INLINE            __attribute__((noinline))
 #   define ALWAYS_INLINE        inline __attribute__((always_inline))
 #   define WEAK                 __weak
 #   define RAMFUNC              __ramfunc

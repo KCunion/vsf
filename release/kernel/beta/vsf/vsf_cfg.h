@@ -32,7 +32,7 @@
 
 /*============================ INCLUDES ======================================*/
 /* do not modify this */
-#include "vsf_app_cfg.h"
+#include "vsf_usr_cfg.h"
 
 
 /* compiler abstraction, supports GCC, IAR, Arm Compiler 5, Arm Compiler 6 */
@@ -53,24 +53,23 @@
 #ifndef Hz
 #   define Hz                                   ul
 #endif
-#ifndef MHz
-#   define MHz                                  *1000000ul
-#endif
 
 /*----------------------------------------------------------------------------*
  * DO NOT MODIFY ANYTHING BELOW                                               *
  *----------------------------------------------------------------------------*/
-#define VSF_CFG_SYNC_EN                     ENABLED
-#define VSF_CFG_PREMPT_EN                   ENABLED
-#define VSF_CFG_DYNAMIC_PRIOTIRY_EN         ENABLED
-#define VSF_CFG_TIMER_EN                    ENABLED
-#define VSF_CFG_QUEUE_EN                    ENABLED
-#define VSF_CFG_BMPEVT_EN                   ENABLED
-#define VSF_USE_SIMPLE_SHELL                ENABLED
-#define VSF_USE_KERNEL_TASK_MODE            ENABLED
-#define VSF_USE_KERNEL_THREAD_MODE          ENABLED
-#define VSF_USE_KERNEL_PT_MODE              ENABLED
-
+#define VSF_CFG_SYNC_EN                             ENABLED
+#define VSF_CFG_PREMPT_EN                           ENABLED
+#define VSF_CFG_DYNAMIC_PRIOTIRY_EN                 ENABLED
+#define VSF_CFG_TIMER_EN                            ENABLED
+#define VSF_CFG_QUEUE_EN                            ENABLED
+#define VSF_CFG_BMPEVT_EN                           ENABLED
+#define VSF_USE_SIMPLE_SHELL                        ENABLED
+#define VSF_KERNEL_CFG_EDA_SUPPORT_FSM              ENABLED
+#define VSF_KERNEL_CFG_EDA_SUPPORT_SUB_CALL         ENABLED
+#define VSF_KERNEL_CFG_SUPPORT_THREAD               ENABLED
+#define VSF_KERNEL_CFG_EDA_SUPPORT_PT               ENABLED
+#define VSF_KERNEL_CFG_EDA_SUPPORT_ON_TERMINATE     ENABLED
+#define VSF_KERNEL_CFG_CALLBACK_TIMER               ENABLED
 /*============================ MACROFIED FUNCTIONS ===========================*/
 /*============================ TYPES =========================================*/
 /*============================ GLOBAL VARIABLES ==============================*/

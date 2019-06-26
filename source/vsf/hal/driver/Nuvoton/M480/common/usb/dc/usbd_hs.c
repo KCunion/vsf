@@ -19,6 +19,10 @@
 
 #include "../../common.h"
 #include "./usbd_hs.h"
+//#define VSF_HAL_USBD_TRACE_EN           ENABLED
+#if VSF_HAL_USBD_TRACE_EN == ENABLED
+#include "./service/trace/vsf_trace.h"
+#endif
 
 /*============================ MACROS ========================================*/
 
@@ -130,8 +134,9 @@ vsf_err_t m480_usbd_hs_init(m480_usbd_hs_t *usbd_hs, usb_dc_cfg_t *cfg)
     reg->PHYCTL |= HSUSBD_PHYCTL_PHYEN_Msk;
     while (1) {
         reg->EP[0ul].EPMPS = 0x20ul;
-        if (reg->EP[0ul].EPMPS == 0x20ul) 
+        if (reg->EP[0ul].EPMPS == 0x20ul) {
             break;
+        }
     }
 
     switch (cfg->speed) {
@@ -177,7 +182,7 @@ void m480_usbd_hs_fini(m480_usbd_hs_t *usbd_hs)
     HSUSBD_T *reg = m480_usbd_hs_get_reg(usbd_hs);
     reg->PHYCTL &= ~HSUSBD_PHYCTL_PHYEN_Msk;
     reg->GINTEN = 0;
-    NVIC_EnableIRQ(usbd_hs->param->irq);
+    NVIC_DisableIRQ(usbd_hs->param->irq);
     // TODO: use pm to config clock
     CLK->AHBCLK &= ~CLK_AHBCLK_HSUSBDCKEN_Msk;
 }
@@ -186,6 +191,9 @@ void m480_usbd_hs_reset(m480_usbd_hs_t *usbd_hs)
 {
     HSUSBD_T *reg = m480_usbd_hs_get_reg(usbd_hs);
     usbd_hs->ep_buf_ptr = 0x1000;
+#ifdef M480_USBD_HS_WROKAROUND_ISO
+    usbd_hs->ep_tx_mask = 0;
+#endif
     for (uint_fast8_t i = 0; i < (m480_usbd_hs_ep_number - 2); i++) {
         M480_USBD_EP_REG(i, EP[0].EPCFG) = 0;
         M480_USBD_EP_REG(i, EP[0].EPINTEN) = 0;
@@ -239,7 +247,6 @@ void m480_usbd_hs_get_setup(m480_usbd_hs_t *usbd_hs, uint8_t *buffer)
     HSUSBD_T *reg = m480_usbd_hs_get_reg(usbd_hs);
     uint_fast16_t temp = reg->SETUP1_0;
     buffer[0] = temp & 0xFF;
-    usbd_hs->setup_status_IN = (buffer[0] & 0x80) > 0;
     buffer[1] = temp >> 8;
     temp = reg->SETUP3_2;
     buffer[2] = temp & 0xFF;
@@ -250,6 +257,12 @@ void m480_usbd_hs_get_setup(m480_usbd_hs_t *usbd_hs, uint8_t *buffer)
     temp = reg->SETUP7_6;
     buffer[6] = temp & 0xFF;
     buffer[7] = temp >> 8;
+}
+
+void m480_usbd_hs_status_stage(m480_usbd_hs_t *usbd_hs, bool is_in)
+{
+    HSUSBD_T *reg = m480_usbd_hs_get_reg(usbd_hs);
+    reg->CEPCTL = USB_CEPCTL_NAKCLR;
 }
 
 vsf_err_t m480_usbd_hs_ep_add(m480_usbd_hs_t *usbd_hs, uint_fast8_t ep, usb_ep_type_t type, uint_fast16_t size)
@@ -381,12 +394,7 @@ uint_fast16_t m480_usbd_hs_ep_get_data_size(m480_usbd_hs_t *usbd_hs, uint_fast8_
     }
 
     if (idx <= 1) {
-        // some ugly fix because M480 not have IN0/OUT0 for status stage
-		if (usbd_hs->reply_status_OUT) {
-			usbd_hs->reply_status_OUT = false;
-			return 0;
-		}
-		return reg->CEPRXCNT;
+        return reg->CEPRXCNT;
     } else {
         idx -= 2;
         return M480_USBD_EP_REG(idx, EP[0].EPDATCNT) & 0xFFFF;
@@ -409,15 +417,23 @@ vsf_err_t m480_usbd_hs_ep_read_buffer(m480_usbd_hs_t *usbd_hs, uint_fast8_t ep, 
     }
 
     if (idx <= 1) {
-        if (!usbd_hs->setup_status_IN) {
-			for (uint_fast16_t i = 0; i < size; i++) {
-				buffer[i] = reg->CEPDAT_BYTE;
-			}
-		}
+        for (uint_fast16_t i = 0; i < size; i++) {
+            buffer[i] = reg->CEPDAT_BYTE;
+        }
     } else {
         idx -= 2;
-        for (uint_fast16_t i = 0; i < size; i++) {
-            buffer[i] = M480_USBD_EP_REG8(idx, EP[0].EPDAT_BYTE);
+        // EPJ - EPL has BUG in DWORD read
+        if ((idx < 8) && !((uint32_t)buffer & 0x03)) {
+            while (size > 4) {
+                *(uint32_t *)buffer = M480_USBD_EP_REG(idx, EP[0].EPDAT);
+                size -= 4;
+                buffer += 4;
+            }
+        }
+        while (size > 0) {
+            *buffer = M480_USBD_EP_REG8(idx, EP[0].EPDAT_BYTE);
+            size -= 1;
+            buffer += 1;
         }
     }
     return VSF_ERR_NONE;
@@ -439,9 +455,6 @@ vsf_err_t m480_usbd_hs_ep_enable_OUT(m480_usbd_hs_t *usbd_hs, uint_fast8_t ep)
     }
 
     if (idx <= 1) {
-        if (usbd_hs->setup_status_IN) {
-			reg->CEPCTL = USB_CEPCTL_NAKCLR;
-		}
     } else {
         idx -= 2;
         M480_USBD_EP_REG(idx, EP[0].EPINTEN) |= HSUSBD_EPINTEN_RXPKIEN_Msk;
@@ -465,14 +478,28 @@ vsf_err_t m480_usbd_hs_ep_set_data_size(m480_usbd_hs_t *usbd_hs, uint_fast8_t ep
     }
 
     if (idx <= 1) {
-        if (!usbd_hs->setup_status_IN && (0 == size)) {
-            reg->CEPCTL = USB_CEPCTL_NAKCLR;
-        } else {
-            reg->CEPTXCNT = size;
-        }
+        reg->CEPTXCNT = size;
     } else {
         idx -= 2;
+#ifdef M480_USBD_HS_WROKAROUND_ISO
+        uint32_t ep_int_en = M480_USBD_EP_REG(idx, EP[0].EPINTEN) & HSUSBD_EPINTEN_TXPKIEN_Msk;
+        M480_USBD_EP_REG(idx, EP[0].EPINTEN) &= ~HSUSBD_EPINTEN_TXPKIEN_Msk;
+            ASSERT(!(usbd_hs->ep_tx_mask & (1 << idx)));
+            M480_USBD_EP_REG(idx, EP[0].EPTXCNT) = size;
+            usbd_hs->retry_cnt[idx] = 0;
+            usbd_hs->tx_size[idx] = size;
+            usbd_hs->ep_tx_mask |= 1 << idx;
+        M480_USBD_EP_REG(idx, EP[0].EPINTEN) |= ep_int_en;
+#else
         M480_USBD_EP_REG(idx, EP[0].EPTXCNT) = size;
+#endif
+
+#if VSF_HAL_USBD_TRACE_EN == ENABLED
+        vsf_trace(0, "set ep%d DATSIZE to %d.\r\n", idx, size);
+//        vsf_trace(0, "EPTXCNT=%d,EPDATCNT=%d\r\n",
+//                              M480_USBD_EP_REG(idx, EP[0].EPTXCNT),
+//                              M480_USBD_EP_REG(idx, EP[0].EPDATCNT) & 0xFFFF);
+#endif
     }
     return VSF_ERR_NONE;
 }
@@ -499,9 +526,30 @@ vsf_err_t m480_usbd_hs_ep_write_buffer(m480_usbd_hs_t *usbd_hs, uint_fast8_t ep,
         }
     } else {
         idx -= 2;
-        for (uint_fast16_t i = 0; i < size; i++) {
-            M480_USBD_EP_REG8(idx, EP[0].EPDAT_BYTE) = buffer[i];
+
+#if VSF_HAL_USBD_TRACE_EN == ENABLED
+        vsf_trace(0, "write ep%d buffer %d bytes.\r\n", idx, size);
+#endif
+
+        // EPJ - EPL has BUG in DWORD write
+        if ((idx < 8) && !((uint32_t)buffer & 0x03)) {
+            while (size > 4) {
+                M480_USBD_EP_REG(idx, EP[0].EPDAT) = *(uint32_t *)buffer;
+                size -= 4;
+                buffer += 4;
+            }
         }
+        while (size > 0) {
+            M480_USBD_EP_REG8(idx, EP[0].EPDAT_BYTE) = *buffer;
+            size -= 1;
+            buffer += 1;
+        }
+
+#if VSF_HAL_USBD_TRACE_EN == ENABLED
+//        vsf_trace(0, "EPTXCNT=%d,EPDATCNT=%d\r\n",
+//                              M480_USBD_EP_REG(idx, EP[0].EPTXCNT),
+//                              M480_USBD_EP_REG(idx, EP[0].EPDATCNT) & 0xFFFF);
+#endif
     }
     return VSF_ERR_NONE;
 }
@@ -536,7 +584,6 @@ void m480_usbd_hs_irq(m480_usbd_hs_t *usbd_hs)
         }
         if (status & HSUSBD_BUSINTSTS_RSTIF_Msk) {
             status &= ~HSUSBD_BUSINTSTS_RSTIF_Msk;
-            usbd_hs->reply_status_OUT = false;
             m480_usbd_hs_notify(usbd_hs, USB_ON_RESET, 0);
             reg->BUSINTSTS = HSUSBD_BUSINTSTS_RSTIF_Msk;
             reg->CEPINTSTS = 0x1ffc;
@@ -575,12 +622,7 @@ void m480_usbd_hs_irq(m480_usbd_hs_t *usbd_hs)
         if (status & HSUSBD_CEPINTSTS_STSDONEIF_Msk) {
             reg->CEPINTSTS = HSUSBD_CEPINTSTS_STSDONEIF_Msk;
 
-            if (!usbd_hs->setup_status_IN) {
-                m480_usbd_hs_notify(usbd_hs, USB_ON_IN, 0);
-            } else {
-                usbd_hs->reply_status_OUT = true;
-                m480_usbd_hs_notify(usbd_hs, USB_ON_OUT, 0);
-            }
+            m480_usbd_hs_notify(usbd_hs, USB_ON_STATUS, 0);
         }
 
         if (status & HSUSBD_CEPINTSTS_SETUPPKIF_Msk) {
@@ -609,7 +651,35 @@ void m480_usbd_hs_irq(m480_usbd_hs_t *usbd_hs)
 
                 if (status & HSUSBD_EPINTSTS_TXPKIF_Msk) {
                     M480_USBD_EP_REG(idx, EP[0].EPINTSTS) = HSUSBD_EPINTSTS_TXPKIF_Msk;
+
+#if VSF_HAL_USBD_TRACE_EN == ENABLED
+                    vsf_trace(0, "%ctxpkif%d: EPTXCNT=%d,EPDATCNT=%d\r\n",
+                              (usbd_hs->ep_tx_mask & (1 << idx)) ? ' ' : '*',
+                              idx,
+                              M480_USBD_EP_REG(idx, EP[0].EPTXCNT),
+                              M480_USBD_EP_REG(idx, EP[0].EPDATCNT) & 0xFFFF);
+#endif
+
+#ifdef M480_USBD_HS_WROKAROUND_ISO
+                    // ISO EP of M480 will issue interrupt even if ZLP is sent.
+                    // and there is possibility that the EP handed even if TXCNT is written
+                    // so if ep_tx_mask is enabled, and received 10 TXIF interrupt with no data sent
+                    // re-write the EPTXCNT register
+                    if (usbd_hs->ep_tx_mask & (1 << idx)) {
+                        if (0 == M480_USBD_EP_REG(idx, EP[0].EPDATCNT)) {
+                            usbd_hs->ep_tx_mask &= ~(1 << idx);
+                            m480_usbd_hs_notify(usbd_hs, USB_ON_IN, ep);
+                        } else {
+                            if (++usbd_hs->retry_cnt[idx] > 2) {
+                                usbd_hs->retry_cnt[idx] = 0;
+                                M480_USBD_EP_REG(idx, EP[0].EPTXCNT) = usbd_hs->tx_size[idx];
+//                                vsf_trace(0, "resend EP%c %d\r\n", 'A' + idx, usbd_hs->tx_size[idx]);
+                            }
+                        }
+                    }
+#else
                     m480_usbd_hs_notify(usbd_hs, USB_ON_IN, ep);
+#endif
                 }
                 if (status & HSUSBD_EPINTSTS_RXPKIF_Msk) {
                     M480_USBD_EP_REG(idx, EP[0].EPINTEN) &= ~HSUSBD_EPINTEN_RXPKIEN_Msk;

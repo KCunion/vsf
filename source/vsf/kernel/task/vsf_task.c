@@ -31,9 +31,6 @@
 #include "../vsf_os.h"
 
 /*============================ MACROS ========================================*/
-
-#define vsf_eda_yield()         vsf_eda_post_evt(peda, VSF_EVT_NONE);
-
 /*============================ MACROFIED FUNCTIONS ===========================*/
 /*============================ TYPES =========================================*/
 /*============================ GLOBAL VARIABLES ==============================*/
@@ -190,13 +187,21 @@ static void __vsf_task_evthandler(vsf_eda_t *peda, vsf_evt_t evt)
 void vsf_task_init( vsf_pool_block(vsf_task_stack_frame_pool) *frame_buf_ptr,
                     uint_fast16_t count)
 {
-    do {                                                                
-        vsf_pool_cfg_t cfg = {
+    do {   
+        /*
+        static const vsf_pool_cfg_t cfg = {
             NULL, 
             (code_region_t *)&VSF_SCHED_SAFE_CODE_REGION,
         };                             
         vsf_task_stack_frame_pool_pool_init((&__default_frame_pool), &cfg);                         
-              
+        */    
+        VSF_POOL_PREPARE(vsf_task_stack_frame_pool, (&__default_frame_pool),
+            .pTarget = NULL, 
+            .ptRegion = (code_region_t *)&VSF_SCHED_SAFE_CODE_REGION,
+        );
+        if (NULL == frame_buf_ptr || 0 == count) {
+            break;
+        }
         vsf_pool_add_buffer(  
             (vsf_pool_t *)(&__default_frame_pool),               
             frame_buf_ptr,                                  

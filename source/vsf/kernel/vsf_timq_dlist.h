@@ -30,7 +30,7 @@
                 vsf_teda_t, timer_node,                                         \
                 (__queue),                                                      \
                 (__teda),                                                       \
-                ptarget->due >= (__teda)->due)
+                _->due >= (__teda)->due)
 
 #define vsf_timq_remove(__queue, __teda)                                        \
         vsf_dlist_remove(                                                       \
@@ -54,12 +54,18 @@
 
 #define vsf_callback_timq_init(__queue)     vsf_dlist_init(__queue)
 
+#define vsf_callback_timq_enqueue(__queue, __timer)                             \
+        vsf_dlist_queue_enqueue(                                                \
+                vsf_callback_timer_t, timer_node,                               \
+                (__queue),                                                      \
+                (__timer))
+
 #define vsf_callback_timq_insert(__queue, __timer)                              \
         vsf_dlist_insert(                                                       \
                 vsf_callback_timer_t, timer_node,                               \
                 (__queue),                                                      \
                 (__timer),                                                      \
-                ptarget->due >= (__timer)->due)
+                _->due >= (__timer)->due)
 
 #define vsf_callback_timq_remove(__queue, __timer)                              \
         vsf_dlist_remove(                                                       \

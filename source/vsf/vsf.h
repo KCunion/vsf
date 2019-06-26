@@ -28,6 +28,10 @@
 
 #include "kernel/vsf_kernel.h"
 
+#include "component/av/vsfav.h"
+
+//#include "component/fs/vsf_fs.h"
+
 #include "component/input/vsf_input.h"
 #include "component/input/hid/vsf_input_hid.h"
 
@@ -44,6 +48,7 @@
 #include "component/usb/device/class/CDC/vsf_usbd_CDC.h"
 #include "component/usb/device/class/CDC/vsf_usbd_CDCACM.h"
 #include "component/usb/device/class/HID/vsf_usbd_HID.h"
+#include "component/usb/device/class/UVC/vsf_usbd_UVC.h"
 
 #include "component/tcpip/netdrv/vsf_netdrv.h"
 #include "component/tcpip/vsfip/vsfip.h"

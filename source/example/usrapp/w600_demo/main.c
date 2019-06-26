@@ -37,8 +37,8 @@ static usrapp_t usrapp;
 
 int main(void)
 {
-    vsf_heap_init();
-    vsf_heap_add(usrapp.heap, sizeof(usrapp.heap));
+    //vsf_heap_init();
+    //vsf_heap_add(usrapp.heap, sizeof(usrapp.heap));
     return 0;
 }
 

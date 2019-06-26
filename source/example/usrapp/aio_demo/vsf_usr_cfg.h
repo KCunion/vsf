@@ -24,11 +24,23 @@
 /*============================ INCLUDES ======================================*/
 /*============================ MACROS ========================================*/
 
-#define ASSERT(...)         if (!(__VA_ARGS__)) {while(1);};
+#define ASSERT(...)                     if (!(__VA_ARGS__)) {while(1);};
 //#define ASSERT(...)
 
-//! for test only ...
-#define VSF_GET_MAIN_CLK()              (160000000)
+#define APP_CFG_USBD_VID                A7A8
+#define APP_CFG_USBD_PID                2347
+
+#define VSF_HEAP_CFG_MCB_MAGIC_EN       ENABLED
+
+#define VSF_KERNEL_CFG_CALLBACK_TIMER   ENABLED
+
+#define VSF_HEAP_SIZE                   0x8000
+
+#define SYSTEM_FREQ                     (192000000ul)
+
+#define VSF_KERNEL_CFG_EDA_SUPPORT_ON_TERMINATE     ENABLED
+
+#define VSF_USE_FS                      ENABLED
 
 //-------- <<< Use Configuration Wizard in Context Menu >>> --------------------
 
@@ -42,7 +54,7 @@
 //      <h> Kernal event-driven system configuration
 //          <o>Maximum event pool size
 //          <i>Simon, please add description here...
-#define VSF_OS_EVTQ_POOL_SIZE               16
+//#define VSF_OS_EVTQ_POOL_SIZE               16
 
 //          <o>Event Bits <4-8>
 //          <i>Simon, please add description here...
@@ -57,9 +69,9 @@
 //      <i>Simon, please add description here...
 #define VSF_OS_EVTQ_SWI_NUM                 1
 
-//      <o>The default vsf_task_t stack frame pool size <1-65535>
-//      <i>The default stack pool is shared among all vsf tasks which do not specify a private frame pool. For such case, the pool size should be at least twice of the maximum number of simultaneously running vsf tasks. 
-#define VSF_TASK_DEFAULT_FRAME_POOL_SIZE    16
+//      <o>The default eda stack frame pool size <1-65535>
+//      <i>The default eda stack frame pool is shared among all eda tasks.
+//#define VSF_TASK_DEFAULT_FRAME_POOL_SIZE    16
 //  </h>
 
 
@@ -85,6 +97,11 @@
 //          </c>
 //      </h>
 
+//      <c1>Enable eda to call other edas
+//      <i>If this feature is enabled, eda is capable to call other eda based tasks, i.e. pure-eda, vsf_task, vsf_pt, simple_fsm and etc.
+#define VSF_KERNEL_CFG_EDA_SUPPORT_SUB_CALL ENABLED
+//      </c>
+
 //      <c1>Enable Timer-integrated tasks (vsf_teda_t)
 //      <i>Simon, please add description here...
 #define VSF_CFG_TIMER_EN                    ENABLED
@@ -108,11 +125,11 @@
 //      <h> Main Function
 //          <o>Main Stack Size              <128-65536:8>
 //          <i>When main function is configured as a thread, this option controls the size of the stack.
-//#define VSF_OS_MAIN_STACK_SIZE               2048
+#define VSF_OS_MAIN_STACK_SIZE              2048
 
 //          <c1>Run main as a thread
 //          <i>This feature will run main function as a thread. RTOS thread support must be enabled. 
-#define VSF_OS_RUN_MAIN_AS_THREAD           DISABLED
+#define VSF_OS_CFG_RUN_MAIN_AS_THREAD       ENABLED
 //          </c>
 //      </h>
 //      <h> Shell Configuration
@@ -125,19 +142,66 @@
 //      <h> Task Form Configuration
 //          <c1>Enable the VSF Co-oprative task support
 //          <i>Enable this feature will provide cooperative task support, the task can be written as RTOS, PT and etc. The stack is shared and the call depth will be constant. 
-#define VSF_USE_KERNEL_TASK_MODE            ENABLED
+#define VSF_KERNEL_CFG_EDA_SUPPORT_FSM            ENABLED
 //          </c>
 //          <c1>Enable the RTOS thread support
 //          <i>Enable this feature will provide RTOS style of task support,i.e. tasks will have dedicated stacks
-#define VSF_USE_KERNEL_THREAD_MODE          ENABLED
+#define VSF_KERNEL_CFG_SUPPORT_THREAD          ENABLED
 //          </c>
 //          <c1>Enable the protoThread support
 //          <i>Enable this feature will provide protoThread style of task support,i.e. tasks will share the same system stack
-#define VSF_USE_KERNEL_PT_MODE              ENABLED
+#define VSF_KERNEL_CFG_EDA_SUPPORT_PT              ENABLED
 //          </c>
 //      </h>
 //  </h>
 //! @}
+
+#define VSF_INPUT_CFG_HID_EN                ENABLED
+
+#define VSF_USE_USB_HOST                    ENABLED
+#define VSF_USE_USB_HOST_HUB                ENABLED
+#define VSF_USE_USB_HOST_ECM                ENABLED
+#define VSF_USE_USB_HOST_HID                ENABLED
+#define VSF_USE_USB_HOST_BTHCI              ENABLED
+#define VSF_USE_USB_HOST_HCD_OHCI           ENABLED
+
+#define VSF_USE_USB_DEVICE                  ENABLED
+
+#define VSF_USE_TCPIP                       ENABLED
+#define VSFIP_CFG_NETIF_HEADLEN             64
+
+#define VSF_USE_TRACE                       ENABLED
+
+#define VSFVM_CFG_RUNTIME_EN                ENABLED
+#define VSFVM_CFG_COMPILER_EN               ENABLED
+#define VSFVM_LEXER_DEBUG_EN                DISABLED
+#define VSFVM_PARSER_DEBUG_EN               DISABLED
+#define VSFVM_COMPILER_DEBUG_EN             DISABLED
+#define VSFVM_RUNTIME_DEBUG_EN              DISABLED
+
+#define VSF_USE_PBUF                        ENABLED
+#define VSF_PBUF_CFG_INDIRECT_RW_SUPPORT    DISABLED
+
+
+#define VSF_USE_SERVICE_STREAM              DISABLED
+#define VSF_USE_SERVICE_VSFSTREAM           ENABLED
+
+#if VSF_USE_SERVICE_STREAM == ENABLED
+#define VSF_SERVICE_CFG_INSERTION                                               \
+    extern vsf_pbuf_pool_t  g_tGenericPBUFPool;
+//#define VSF_SERVICE_CFG_DEPENDENCY      
+
+enum {
+    VSF_PBUF_ADAPTER_CDC_SRC = 1,
+};
+
+#define VSF_PBUF_ADAPTERS                                                       \
+        {                                                                       \
+            .ptTarget = &g_tGenericPBUFPool,                                    \
+            .ID = VSF_PBUF_ADAPTER_CDC_SRC,                                     \
+            .piMethods = &VSF_PBUF_ADAPTER_METHODS_STREAM_SRC,                  \
+        }
+#endif
 
 /*============================ TYPES =========================================*/
 /*============================ GLOBAL VARIABLES ==============================*/

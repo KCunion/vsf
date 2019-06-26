@@ -97,12 +97,19 @@ typedef enum m480_pllsrc_t m480_pllsrc_t;
 /*============================ PROTOTYPES ====================================*/
 /*============================ IMPLEMENTATION ================================*/
 
+void __low_level_init(void)
+{
+    // to use SRAM BANK2
+    CLK->AHBCLK |= CLK_AHBCLK_SPIMCKEN_Msk;
+    SPIM->CTL1 |= 1 << 2;
+}
+
 /*! \note initialize device driver
  *  \param none
  *  \retval true initialization succeeded.
  *  \retval false initialization failed
  */
-bool driver_init(void)
+bool vsf_driver_init(void)
 {
     // test only, remove later
     uint32_t temp32;

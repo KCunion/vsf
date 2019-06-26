@@ -26,7 +26,7 @@
 //! @{
 def_interface(systick_t)
     bool            (*Init)(systick_cfg_t *);       //!< initialize the systick
-    bool            (*Enable)(void);                //!< enable
+    void            (*Enable)(void);                //!< enable
     bool            (*Disable)(void);               //!< disable
     bool            (*IsMatch)(void);
     u32_property_t  Counter;

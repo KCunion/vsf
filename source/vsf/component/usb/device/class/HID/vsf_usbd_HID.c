@@ -1,21 +1,19 @@
-/***************************************************************************
- *   Copyright (C) 2009 - 2010 by Simon Qian <SimonQian@SimonQian.com>     *
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- *   This program is distributed in the hope that it will be useful,       *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                          *
- *                                                                         *
- *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
- ***************************************************************************/
+/*****************************************************************************
+ *   Copyright(C)2009-2019 by VSF Team                                       *
+ *                                                                           *
+ *  Licensed under the Apache License, Version 2.0 (the "License");          *
+ *  you may not use this file except in compliance with the License.         *
+ *  You may obtain a copy of the License at                                  *
+ *                                                                           *
+ *     http://www.apache.org/licenses/LICENSE-2.0                            *
+ *                                                                           *
+ *  Unless required by applicable law or agreed to in writing, software      *
+ *  distributed under the License is distributed on an "AS IS" BASIS,        *
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. *
+ *  See the License for the specific language governing permissions and      *
+ *  limitations under the License.                                           *
+ *                                                                           *
+ ****************************************************************************/
 
 /*============================ INCLUDES ======================================*/
 
@@ -38,6 +36,10 @@ enum vsf_usbd_HID_EVT_t {
 /*============================ GLOBAL VARIABLES ==============================*/
 /*============================ LOCAL VARIABLES ===============================*/
 /*============================ PROTOTYPES ====================================*/
+
+SECTION(".text.vsf.kernel.eda")
+vsf_err_t __vsf_eda_fini(vsf_eda_t *pthis);
+
 /*============================ IMPLEMENTATION ================================*/
 
 static vsf_usbd_HID_report_t * vsf_usbd_HID_find_report(
@@ -227,7 +229,7 @@ static vsf_err_t vsf_usbd_HID_init(vsf_usbd_dev_t *dev, vsf_usbd_ifs_t *ifs)
 static vsf_err_t vsf_usbh_HID_fini(vsf_usbd_dev_t *dev, vsf_usbd_ifs_t *ifs)
 {
     vsf_usbd_HID_t *hid = (vsf_usbd_HID_t *)ifs->class_param;
-    return vsf_teda_fini(&hid->teda);
+    return __vsf_eda_fini(&hid->teda.use_as__vsf_eda_t);
 }
 
 static vsf_usbd_desc_t * vsf_usbd_HID_get_desc(vsf_usbd_dev_t *dev,
